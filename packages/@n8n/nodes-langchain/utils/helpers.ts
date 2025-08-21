@@ -8,7 +8,6 @@ import type { BaseChatMemory } from 'langchain/memory';
 import { NodeConnectionTypes, NodeOperationError, jsonStringify } from 'n8n-workflow';
 import type {
 	AiEvent,
-	INode,
 	IDataObject,
 	IExecuteFunctions,
 	ISupplyDataFunctions,
@@ -118,6 +117,20 @@ export function getSessionId(
 			sessionId = bodyData.sessionId as string;
 		} else {
 			sessionId = ctx.evaluateExpression('{{ $json.sessionId }}', itemIndex) as string;
+
+			// try to get sessionId from chat trigger
+			if (!sessionId || sessionId === undefined) {
+				try {
+					const chatTrigger = ctx.getChatTrigger();
+
+					if (chatTrigger) {
+						sessionId = ctx.evaluateExpression(
+							`{{ $('${chatTrigger.name}').first().json.sessionId }}`,
+							itemIndex,
+						) as string;
+					}
+				} catch (error) {}
+			}
 		}
 
 		if (sessionId === '' || sessionId === undefined) {
@@ -249,14 +262,6 @@ export function unwrapNestedOutput(output: Record<string, unknown>): Record<stri
 	}
 
 	return output;
-}
-
-/**
- * Converts a node name to a valid tool name by replacing special characters with underscores
- * and collapsing consecutive underscores into a single one.
- */
-export function nodeNameToToolName(node: INode): string {
-	return node.name.replace(/[\s.?!=+#@&*()[\]{}:;,<>\/\\'"^%$]/g, '_').replace(/_+/g, '_');
 }
 
 /**
